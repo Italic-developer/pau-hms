@@ -4,13 +4,14 @@ import { useState } from "react";
 import { ClipboardList, CheckCircle2, Wallet } from "lucide-react";
 import { Card, Shell, Stat, StatusBadge, selectClass } from "@/components/Shell";
 import { TaskBoard } from "@/components/TaskBoard";
-import { seedOrders, useShared, type OrderStatus, type ServiceOrder } from "@/lib/store";
+import { type OrderStatus, type ServiceOrder } from "@/lib/store";
 import type { User } from "@/lib/session";
+import { useCollection } from "@/lib/useCollection";
 
 const tabs = ["all", "laundry", "cleaning"] as const;
 
 export default function WardenHome({ user }: { user: User }) {
-    const [orders, setOrders] = useShared<ServiceOrder[]>("hms-orders", seedOrders);
+    const { items: orders, error, updateItem } = useCollection<ServiceOrder>("orders");
     const [tab, setTab] = useState<(typeof tabs)[number]>("all");
 
     const mine = orders.filter((o) => o.hostel === user.hostelValue);
@@ -19,8 +20,8 @@ export default function WardenHome({ user }: { user: User }) {
     const done = mine.filter((o) => o.status === "Done");
     const earned = done.reduce((s, o) => s + o.total, 0);
 
-    const setStatus = (id: number, status: OrderStatus) =>
-        setOrders((list) => list.map((o) => (o.id === id ? { ...o, status } : o)));
+    const setStatus = (id: string, status: OrderStatus) =>
+        void updateItem(id, { status });
 
     return (
         <Shell user={user}>
@@ -38,6 +39,7 @@ export default function WardenHome({ user }: { user: User }) {
 
                 <div className="grid gap-6 lg:grid-cols-3">
                     <Card title="Service orders" icon={ClipboardList} className="lg:col-span-2">
+                        {error && <p role="alert" className="mb-3 text-sm text-red-700">{error}</p>}
                         <div className="mb-4 flex gap-2">
                             {tabs.map((t) => (
                                 <button

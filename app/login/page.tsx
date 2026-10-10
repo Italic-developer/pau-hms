@@ -4,9 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useCont } from "@/components/Context";
-import { parseStaff, saveUser } from "@/lib/session";
-import { findAccount } from "@/lib/accounts";
-import { hostels, getHostel } from "@/lib/hostels"; // add hostels to the import
 
 const inputClass =
     "w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/40";
@@ -18,58 +15,26 @@ export default function LoginPage() {
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
 
-    function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError("");
 
-        const staff = parseStaff(name);
-        let role: "student" | "warden" | "manager" = "student";
-        let hostelValue = "";
-        let roomNo = "Staff";
-
-        if (staff) {
-            if (!staff.valid) {
-                setError(
-                    `Unknown hostel "${staff.hostelValue}". Use one of: ${hostels.map((h) => h.value).join(", ")}.`
-                );
+        try {
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, password }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                setError(result.error || "Unable to log in.");
                 return;
             }
-            role = staff.role;
-            hostelValue = staff.hostelValue;
-        } else {
-            const acc = findAccount(name, password);
-            if (!acc) {
-                setError("No account matches those details. Sign up first?");
-                return;
-            }
-            hostelValue = acc.hostelValue;
-            roomNo = acc.roomNo;
+            setIsAuthenticated(true);
+            router.push("/");
+        } catch {
+            setError("Unable to reach the server. Please try again.");
         }
-
-        if (staff) {
-            role = staff.role;
-            hostelValue = staff.hostelValue;
-        } else {
-            const acc = findAccount(name, password);
-            if (!acc) {
-                setError("No account matches those details. Sign up first?");
-                return;
-            }
-            hostelValue = acc.hostelValue;
-            roomNo = acc.roomNo;
-        }
-
-        const h = getHostel(hostelValue);
-        saveUser({
-            name: name.trim(),
-            hostel: h?.label ?? "",
-            hostelValue,
-            hasCafe: h?.hasCafe ?? false,
-            roomNo,
-            role,
-        });
-        setIsAuthenticated(true);
-        router.push("/");
     }
 
     return (

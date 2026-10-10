@@ -3,26 +3,26 @@
 import { useState } from "react";
 import { ListChecks } from "lucide-react";
 import { Card, selectClass } from "@/components/Shell";
-import { seedTasks, today, useShared, type Task } from "@/lib/store";
+import { type Task } from "@/lib/store";
 import type { User } from "@/lib/session";
+import { useCollection } from "@/lib/useCollection";
 
 export function TaskBoard({ user }: { user: User }) {
     const me = user.role as "warden" | "manager";
     const other = me === "warden" ? "manager" : "warden";
-    const [tasks, setTasks] = useShared<Task[]>("hms-tasks", seedTasks);
+    const { items: tasks, error, createItem, updateItem } = useCollection<Task>("tasks");
     const [title, setTitle] = useState("");
     const [to, setTo] = useState<"warden" | "manager">(other);
 
     const mine = tasks.filter((t) => t.hostel === user.hostelValue);
 
-    function add(e: React.FormEvent) {
+    async function add(e: React.FormEvent) {
         e.preventDefault();
-        setTasks((t) => [{ id: Date.now(), hostel: user.hostelValue, title, from: me, to, done: false, date: today() }, ...t]);
-        setTitle("");
+        if (await createItem({ title, to })) setTitle("");
     }
 
-    const toggle = (id: number) =>
-        setTasks((t) => t.map((x) => (x.id === id ? { ...x, done: !x.done } : x)));
+    const toggle = (id: string, done: boolean) =>
+        void updateItem(id, { done: !done });
 
     return (
         <Card title="Shared tasks" icon={ListChecks}>
@@ -38,10 +38,11 @@ export function TaskBoard({ user }: { user: User }) {
                 </select>
                 <button className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">Add</button>
             </form>
+            {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
             <ul className="mt-4 space-y-2">
                 {mine.map((t) => (
                     <li key={t.id} className="flex items-center gap-3 rounded-lg bg-muted/60 px-3 py-2">
-                        <input type="checkbox" checked={t.done} onChange={() => toggle(t.id)} className="size-4 accent-[var(--primary)]" />
+                        <input type="checkbox" checked={t.done} onChange={() => toggle(t.id, t.done)} className="size-4 accent-[var(--primary)]" />
                         <div className="flex-1">
                             <p className={`text-sm ${t.done ? "text-muted-foreground line-through" : ""}`}>{t.title}</p>
                             <p className="text-xs capitalize text-muted-foreground">
