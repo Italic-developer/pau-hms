@@ -18,12 +18,12 @@ const ContextProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-const useAuth = () => {
-  const context = useContext(Context);
+const useCont = () => {
+  const context: ContextProps | undefined = useContext(Context);
   if (!context) {
-    throw new Error('useAuth must be used within a ContextProvider');
+    throw new Error('useContext must be used within a ContextProvider');
   }
   return context;
 };
 
-export { ContextProvider, useAuth };
+export { ContextProvider, useCont };
