@@ -27,7 +27,7 @@ export default function LoginPage() {
         <main className="grid min-h-screen lg:grid-cols-3">
             {/* Brand panel */}
             <section className="hidden flex-col justify-between bg-muted/40 p-12 text-foreground lg:flex col-span-1">
-                <div className="mb-12 flex flex-col gap-4">
+                <div className="mb-12 flex flex-row gap-4">
                     <img src="/pau-logo2.png" alt="Logo" className="h-12 w-auto aspect-square" />
                     <span className="text-sm font-semibold uppercase tracking-widest text-primary">
                         Hostel Management System
