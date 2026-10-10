@@ -6,6 +6,7 @@ import type { User } from "@/lib/session";
 import StudentHome from "@/components/StudentHome";
 import WardenHome from "@/components/WardenHome";
 import ManagerHome from "@/components/ManagerHome";
+import { useCont } from "@/components/Context";
 
 export default function Home() {
   const { isAuthenticated, setIsAuthenticated } = useCont();
@@ -21,7 +22,7 @@ export default function Home() {
       });
   }, [router, setIsAuthenticated]);
 
-  if (checkingSession || !user) return null;
+  if (!user) return null;
   if (user.role === "warden") return <WardenHome user={user} />;
   if (user.role === "manager") return <ManagerHome user={user} />;
   return <StudentHome user={user} />;
