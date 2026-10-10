@@ -9,7 +9,7 @@ import ManagerHome from "@/components/ManagerHome";
 import { useCont } from "@/components/Context";
 
 export default function Home() {
-  const { isAuthenticated, setIsAuthenticated } = useCont();
+  const { isAuthenticated, setIsAuthenticated } = useCont()
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
   useEffect(() => {
