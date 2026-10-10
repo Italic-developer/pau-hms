@@ -116,7 +116,14 @@
   --sidebar-ring: oklch(0.553 0.013 58.071);
   --radius: 0.45rem;
 }
-
+[data-hostel] {
+  --primary: oklch(0.38 0.12 var(--hue));
+  --ring: oklch(0.55 0.13 var(--hue));
+}
+:root[data-theme="dark"] [data-hostel] {
+  --primary: oklch(0.62 0.14 var(--hue));
+  --ring: oklch(0.62 0.14 var(--hue));
+}
 @layer base {
   * {
     @apply border-border outline-ring/50;

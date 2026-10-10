@@ -5,6 +5,7 @@ import { hostels } from "@/lib/hostels"; // delete the local hostels array
 import { saveUser } from "@/lib/session";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 
 
@@ -20,11 +21,21 @@ export default function LoginPage() {
         const selected = hostels.find((h) => h.value === hostel);
         saveUser({
             name,
-            hostel: selected?.label ?? "",
+            hostelValue: selected?.label ?? "",
             hasCafe: selected?.hasCafe ?? false,
-            roomNo: "B-6", // TODO: from your backend
+            roomNo: "B-6", // TODO: from your backend,
+            role: "student", // TODO: from your backend
         });
         setIsAuthenticated(true);
+        const role = getRole(name, hostel);
+        saveUser({
+            name,
+            hostel: selected?.label ?? "",
+            hostelValue: hostel,
+            hasCafe: selected?.hasCafe ?? false,
+            roomNo: role === "student" ? "B-6" : "Staff", // TODO: from your backend
+            role,
+        });
         router.push("/");
     }
     const inputClass =
@@ -92,27 +103,7 @@ export default function LoginPage() {
                             />
                         </div>
 
-                        <div className="space-y-1.5">
-                            <label htmlFor="hostel" className="text-sm font-medium">
-                                Hostel
-                            </label>
-                            <select
-                                id="hostel"
-                                required
-                                value={hostel}
-                                onChange={(e) => setHostel(e.target.value)}
-                                className={inputClass}
-                            >
-                                <option value="" disabled>
-                                    Select your hostel
-                                </option>
-                                {hostels.map((h) => (
-                                    <option key={h.value} value={h.value}>
-                                        {h.label}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+
 
                         <button
                             type="submit"
@@ -121,6 +112,8 @@ export default function LoginPage() {
                             Log in
                         </button>
                     </form>
+                    <span>Don't habe an account? <Link href={"/signup"} > Sign Up
+                    </Link></span>
                 </div>
             </section>
         </main>
