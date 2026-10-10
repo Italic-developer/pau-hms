@@ -1,13 +1,44 @@
+import { MongoClient, type Db } from "mongodb";
 
-import { MongoClient } from "mongodb";
+const databaseName = process.env.MONGODB_DB || "pau_hms";
 
-const uri = process.env.MONGODB_URI;
-if (!uri) throw new Error("Missing MONGODB_URI in .env.local");
+declare global {
+  var mongoClientPromise: Promise<MongoClient> | undefined;
+  var mongoDbPromise: Promise<Db> | undefined;
+}
 
-// Reuse one connection across hot reloads in development
-const g = globalThis as unknown as { _mongo?: Promise<MongoClient> };
-const clientPromise = g._mongo ?? (g._mongo = new MongoClient(uri).connect());
+function getClientPromise(): Promise<MongoClient> {
+  if (!process.env.MONGODB_URI) {
+    throw new Error("MONGODB_URI is required. Copy .env.example to .env.local and configure Atlas.");
+  }
+  if (!globalThis.mongoClientPromise) {
+    globalThis.mongoClientPromise = new MongoClient(process.env.MONGODB_URI, {
+      maxPoolSize: 5,
+      minPoolSize: 0,
+      maxIdleTimeMS: 30_000,
+      serverSelectionTimeoutMS: 5_000,
+    }).connect();
+  }
+  return globalThis.mongoClientPromise;
+}
 
-export async function getDb() {
-  return (await clientPromise).db(process.env.MONGODB_DB ?? "hms");
+export async function getDb(): Promise<Db> {
+  if (!globalThis.mongoDbPromise) {
+    globalThis.mongoDbPromise = getClientPromise().then(async (connectedClient) => {
+      const db = connectedClient.db(databaseName);
+      await Promise.all([
+        db.collection("users").createIndex({ nameKey: 1 }, { unique: true }),
+        db.collection("sessions").createIndex({ tokenHash: 1 }, { unique: true }),
+        db.collection("sessions").createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }),
+        db.collection("roomInventory").createIndex({ hostel: 1, size: 1 }, { unique: true }),
+      ]);
+      return db;
+    });
+  }
+
+  return await globalThis.mongoDbPromise;
+}
+
+export function getMongoClient(): Promise<MongoClient> {
+  return getClientPromise();
 }

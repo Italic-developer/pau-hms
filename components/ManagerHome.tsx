@@ -4,26 +4,28 @@ import { DoorOpen, MessageSquareWarning, Percent } from "lucide-react";
 import { Card, Shell, Stat, StatusBadge, selectClass } from "@/components/Shell";
 import { TaskBoard } from "@/components/TaskBoard";
 import { getHostel } from "@/lib/hostels";
-import { roomsLeft, seedComplaints, useShared, type Complaint, type ComplaintStatus } from "@/lib/store";
+import { roomsLeft, type Complaint, type ComplaintStatus } from "@/lib/store";
 import type { User } from "@/lib/session";
+import { useCollection } from "@/lib/useCollection";
+import { useRoomAvailability } from "@/lib/useRoomAvailability";
 
 export default function ManagerHome({ user }: { user: User }) {
     const hostel = getHostel(user.hostelValue);
-    const [all, setAll] = useShared<Complaint[]>("hms-complaints", seedComplaints);
-    const [taken] = useShared<Record<string, number>>("hms-taken", {});
+    const { items: complaints, error: complaintError, updateItem } = useCollection<Complaint>("complaints");
+    const { taken, error: availabilityError } = useRoomAvailability();
 
     if (!hostel) return null;
     const rooms = hostel.rooms.map((r) => ({
         ...r,
         available: roomsLeft(taken, hostel.value, r.size, r.available),
     }));
-    const complaints = all.filter((c) => c.hostel === user.hostelValue);
+    const hostelComplaints = complaints;
     const total = rooms.reduce((s, r) => s + r.total, 0);
     const free = rooms.reduce((s, r) => s + r.available, 0);
-    const open = complaints.filter((c) => c.status !== "Resolved").length;
+    const open = hostelComplaints.filter((c) => c.status !== "Resolved").length;
 
-    const setStatus = (id: number, status: ComplaintStatus) =>
-        setAll((list) => list.map((c) => (c.id === id ? { ...c, status } : c)));
+    const setStatus = (id: string, status: ComplaintStatus) =>
+        void updateItem(id, { status });
 
     return (
         <Shell user={user}>
@@ -61,8 +63,11 @@ export default function ManagerHome({ user }: { user: User }) {
                         </Card>
 
                         <Card title="Complaints" icon={MessageSquareWarning}>
+                            {(complaintError || availabilityError) && (
+                                <p role="alert" className="mb-3 text-sm text-red-700">{complaintError || availabilityError}</p>
+                            )}
                             <ul className="space-y-2">
-                                {complaints.map((c) => (
+                                {hostelComplaints.map((c) => (
                                     <li key={c.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg bg-muted/60 px-3 py-2">
                                         <div>
                                             <p className="text-sm font-medium">{c.category}: {c.details}</p>
@@ -78,7 +83,7 @@ export default function ManagerHome({ user }: { user: User }) {
                                         </div>
                                     </li>
                                 ))}
-                                {complaints.length === 0 && <p className="text-sm text-muted-foreground">No complaints.</p>}
+                                {hostelComplaints.length === 0 && <p className="text-sm text-muted-foreground">No complaints.</p>}
                             </ul>
                         </Card>
                     </div>

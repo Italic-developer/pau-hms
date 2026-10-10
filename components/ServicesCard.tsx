@@ -3,28 +3,20 @@
 import { useState } from "react";
 import { Shirt } from "lucide-react";
 import { Card, StatusBadge, selectClass } from "@/components/Shell";
-import { seedOrders, services, today, useShared, type ServiceOrder } from "@/lib/store";
-import type { User } from "@/lib/session";
+import { services, type ServiceOrder } from "@/lib/store";
+import { useCollection } from "@/lib/useCollection";
 
-export function ServicesCard({ user }: { user: User }) {
-    const [orders, setOrders] = useShared<ServiceOrder[]>("hms-orders", seedOrders);
+export function ServicesCard() {
+    const { items: orders, error, createItem } = useCollection<ServiceOrder>("orders");
     const [serviceId, setServiceId] = useState<string>(services[0].id);
     const [qty, setQty] = useState(1);
 
     const service = services.find((s) => s.id === serviceId)!;
-    const mine = orders.filter((o) => o.student === user.name);
+    const mine = orders;
 
-    function order(e: React.FormEvent) {
+    async function order(e: React.FormEvent) {
         e.preventDefault();
-        setOrders((o) => [
-            {
-                id: Date.now(), hostel: user.hostelValue, roomNo: user.roomNo, student: user.name,
-                service: service.name, kind: service.kind, qty, total: service.price * qty,
-                status: "Requested", date: today()
-            },
-            ...o,
-        ]);
-        setQty(1);
+        if (await createItem({ serviceId, qty })) setQty(1);
     }
 
     return (
@@ -47,6 +39,7 @@ export function ServicesCard({ user }: { user: User }) {
                     Order · ₦{(service.price * qty).toLocaleString()}
                 </button>
             </form>
+            {error && <p role="alert" className="mt-3 text-sm text-red-700">{error}</p>}
             <p className="mt-2 text-xs text-muted-foreground">The cost is added to your hostel bill.</p>
 
             {mine.length > 0 && (

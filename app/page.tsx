@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useCont } from "@/components/Context";
-import { getUser, type User } from "@/lib/session";
+import type { User } from "@/lib/session";
 import StudentHome from "@/components/StudentHome";
 import WardenHome from "@/components/WardenHome";
 import ManagerHome from "@/components/ManagerHome";
@@ -22,7 +21,7 @@ export default function Home() {
       });
   }, [router, setIsAuthenticated]);
 
-  if (!isAuthenticated || !user) return null;
+  if (checkingSession || !user) return null;
   if (user.role === "warden") return <WardenHome user={user} />;
   if (user.role === "manager") return <ManagerHome user={user} />;
   return <StudentHome user={user} />;

@@ -1,22 +1,30 @@
 "use client";
 
 import type { CSSProperties, ElementType, ReactNode } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { BedDouble, CircleUserRound, LogOut } from "lucide-react";
 import { useCont } from "@/components/Context";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { getHostel } from "@/lib/hostels";
-import { clearUser, type User } from "@/lib/session";
+import type { User } from "@/lib/session";
 
 export function Shell({ user, children }: { user: User; children: ReactNode }) {
     const router = useRouter();
     const { setIsAuthenticated } = useCont();
+    const [logoutError, setLogoutError] = useState("");
     const hue = getHostel(user.hostelValue)?.hue ?? 260;
 
     async function logout() {
-        await fetch("/api/logout", { method: "POST" });
-        setIsAuthenticated(false);
-        router.replace("/login");
+        setLogoutError("");
+        try {
+            const response = await fetch("/api/auth/logout", { method: "POST" });
+            if (!response.ok) throw new Error("Unable to log out. Please try again.");
+            setIsAuthenticated(false);
+            router.replace("/login");
+        } catch (cause) {
+            setLogoutError(cause instanceof Error ? cause.message : "Unable to log out.");
+        }
     }
 
     return (
@@ -41,6 +49,7 @@ export function Shell({ user, children }: { user: User; children: ReactNode }) {
                     </button>
                 </div>
             </header>
+            {logoutError && <p role="alert" className="px-6 pt-3 text-sm text-red-700">{logoutError}</p>}
             {children}
         </div>
     );

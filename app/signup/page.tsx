@@ -6,11 +6,10 @@ import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useCont } from "@/components/Context";
 import { getHostel, hostels, type Gender } from "@/lib/hostels";
-import { parseStaff, saveUser } from "@/lib/session";
-import { addAccount, getAccounts } from "@/lib/accounts";
-import { bookRoom, roomsLeft, useShared } from "@/lib/store";
+import { roomsLeft } from "@/lib/store";
+import { useRoomAvailability } from "@/lib/useRoomAvailability";
 
-const steps = ["Account", "Hostel", "Room", "Payment"];
+const steps = ["Account", "Hostel", "Room", "Review"];
 const naira = (n: number) => `₦${n.toLocaleString()}`;
 
 const inputClass =
@@ -28,7 +27,7 @@ const choice = (selected: boolean) =>
 export default function SignupPage() {
     const router = useRouter();
     const { setIsAuthenticated } = useCont();
-    const [taken] = useShared<Record<string, number>>("hms-taken", {});
+    const { taken, error: availabilityError } = useRoomAvailability();
 
     const [step, setStep] = useState(0);
     const [name, setName] = useState("");
@@ -55,43 +54,38 @@ export default function SignupPage() {
         setRoomSize(null);
     }
 
-    async function pay() {
+    async function createAccount() {
         if (!hostel || !room) return;
         setPaying(true);
         setError("");
 
-        // TODO: open Paystack/Flutterwave checkout here first
-        const res = await fetch("/api/signup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, password, gender, hostelValue: hostel.value, roomSize: room.size }),
-        });
-        const data = await res.json();
-
-        if (!res.ok) {
-            setError(data.error ?? "Something went wrong.");
+        try {
+            const response = await fetch("/api/auth/signup", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name, password, gender, hostelValue, roomSize: room.size }),
+            });
+            const result = await response.json();
+            if (!response.ok) {
+                setError(result.error || "Unable to create your account.");
+                if (response.status === 409) setStep(2);
+                return;
+            }
+            setIsAuthenticated(true);
+            router.push("/");
+        } catch {
+            setError("Unable to reach the server. Please try again.");
+        } finally {
             setPaying(false);
-            if (res.status === 409) setStep(2);
-            return;
         }
-        setIsAuthenticated(true);
-        router.push("/");
     }
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError("");
-        const res = await fetch("/api/login", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name, password }),
-        });
-        if (!res.ok) {
-            setError((await res.json()).error ?? "Login failed.");
-            return;
-        }
-        setIsAuthenticated(true);
-        router.push("/");
+
+        if (step === 3) void createAccount();
+        else setStep((s) => s + 1);
     }
     return (
         <main className="grid min-h-screen lg:grid-cols-3">
@@ -180,6 +174,7 @@ export default function SignupPage() {
                             <>
                                 <h2 className="text-2xl font-semibold">Choose your hostel</h2>
                                 <p className="mt-1 text-sm text-muted-foreground">Hostels for {gender} students</p>
+                                {availabilityError && <p role="alert" className={errorBox}>{availabilityError}</p>}
                                 <div className="mt-6 space-y-3">
                                     {options.map((h) => {
                                         const full = h.rooms.every(
@@ -231,8 +226,8 @@ export default function SignupPage() {
                         {/* Step 4: payment */}
                         {step === 3 && hostel && room && (
                             <>
-                                <h2 className="text-2xl font-semibold">Confirm and pay</h2>
-                                <p className="mt-1 text-sm text-muted-foreground">Your room is held until you pay</p>
+                                <h2 className="text-2xl font-semibold">Review your booking</h2>
+                                <p className="mt-1 text-sm text-muted-foreground">Payment is not connected; continuing will reserve your room without charging you.</p>
                                 {error && <p className={errorBox}>{error}</p>}
                                 <dl className="mt-6 divide-y rounded-lg border text-sm">
                                     {[
@@ -262,10 +257,10 @@ export default function SignupPage() {
                             <button type="submit" disabled={!canContinue || paying} className={primaryBtn}>
                                 {paying ? (
                                     <span className="flex items-center justify-center gap-2">
-                                        <Loader2 className="size-4 animate-spin" /> Processing...
+                                        <Loader2 className="size-4 animate-spin" /> Creating account...
                                     </span>
                                 ) : step === 3 && room ? (
-                                    `Pay ${naira(room.price)}`
+                                    "Create account"
                                 ) : (
                                     "Continue"
                                 )}

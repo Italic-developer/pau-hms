@@ -8,18 +8,12 @@ import {
 import { Card, Shell, Stat, StatusBadge } from "@/components/Shell";
 import { ServicesCard } from "@/components/ServicesCard";
 import { announcements, contacts, roommates } from "@/lib/mock";
-import { seedComplaints, today, useShared, type Complaint } from "@/lib/store";
+import { cafeMenu, type Complaint } from "@/lib/store";
 import type { User } from "@/lib/session";
-
-const menu = [
-    { id: 1, name: "Jollof rice & chicken", price: 2500 },
-    { id: 2, name: "Fried rice & plantain", price: 2300 },
-    { id: 3, name: "Beef shawarma", price: 3000 },
-    { id: 4, name: "Bottled water", price: 300 },
-];
+import { useCollection } from "@/lib/useCollection";
 
 interface CafeOrder {
-    id: number;
+    id: string;
     items: string;
     total: number;
     date: string;
@@ -30,36 +24,25 @@ const field =
 
 export default function StudentHome({ user }: { user: User }) {
     const [cart, setCart] = useState<Record<number, number>>({});
-    const [cafeOrders, setCafeOrders] = useState<CafeOrder[]>([]);
-    const [allComplaints, setAllComplaints] = useShared<Complaint[]>("hms-complaints", seedComplaints);
+    const { items: cafeOrders, error: cafeError, createItem: createCafeOrder } = useCollection<CafeOrder>("cafe-orders");
+    const { items: complaints, error: complaintError, createItem: createComplaint } = useCollection<Complaint>("complaints");
     const [category, setCategory] = useState("Maintenance");
     const [details, setDetails] = useState("");
 
-    const complaints = allComplaints.filter((c) => c.student === user.name);
-    const total = menu.reduce((sum, m) => sum + m.price * (cart[m.id] ?? 0), 0);
+    const total = cafeMenu.reduce((sum, m) => sum + m.price * (cart[m.id] ?? 0), 0);
     const openComplaints = complaints.filter((c) => c.status !== "Resolved").length;
     const firstName = user.name.split(" ")[0];
 
-    function placeOrder() {
-        const items = menu
+    async function placeOrder() {
+        const items = cafeMenu
             .filter((m) => (cart[m.id] ?? 0) > 0)
-            .map((m) => `${cart[m.id]}× ${m.name}`)
-            .join(", ");
-        // TODO: send the order to your backend
-        setCafeOrders((o) => [{ id: Date.now(), items, total, date: today() }, ...o]);
-        setCart({});
+            .map((m) => ({ id: m.id, quantity: cart[m.id] }));
+        if (await createCafeOrder({ items })) setCart({});
     }
 
-    function submitComplaint(e: React.FormEvent) {
+    async function submitComplaint(e: React.FormEvent) {
         e.preventDefault();
-        setAllComplaints((c) => [
-            {
-                id: Date.now(), hostel: user.hostelValue, roomNo: user.roomNo, student: user.name,
-                category, details, status: "Pending", date: today()
-            },
-            ...c,
-        ]);
-        setDetails("");
+        if (await createComplaint({ category, details })) setDetails("");
     }
 
     const stats = [
@@ -96,7 +79,7 @@ export default function StudentHome({ user }: { user: User }) {
                         {user.hasCafe && (
                             <Card title="Cafe ordering" icon={UtensilsCrossed}>
                                 <ul className="divide-y">
-                                    {menu.map((m) => (
+                                    {cafeMenu.map((m) => (
                                         <li key={m.id} className="flex items-center justify-between py-3">
                                             <div>
                                                 <p className="text-sm font-medium">{m.name}</p>
@@ -152,12 +135,14 @@ export default function StudentHome({ user }: { user: User }) {
                                         </ul>
                                     </div>
                                 )}
+                                {cafeError && <p role="alert" className="mt-3 text-sm text-red-700">{cafeError}</p>}
                             </Card>
                         )}
 
-                        <ServicesCard user={user} />
+                        <ServicesCard />
 
                         <Card title="Complaints" icon={MessageSquareWarning}>
+                            {complaintError && <p role="alert" className="mb-3 text-sm text-red-700">{complaintError}</p>}
                             <form onSubmit={submitComplaint} className="space-y-4">
                                 <select value={category} onChange={(e) => setCategory(e.target.value)} className={field}>
                                     <option>Maintenance</option>
