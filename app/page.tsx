@@ -9,17 +9,18 @@ import WardenHome from "@/components/WardenHome";
 import ManagerHome from "@/components/ManagerHome";
 
 export default function Home() {
-  const { isAuthenticated } = useCont();
+  const { isAuthenticated, setIsAuthenticated } = useCont();
   const router = useRouter();
   const [user, setUser] = useState<User | null>(null);
-
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace("/login");
-      return;
-    }
-    setUser(getUser());
-  }, [isAuthenticated, router]);
+    fetch("/api/me")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) { router.replace("/login"); return; }
+        setUser(data.user);
+        setIsAuthenticated(true);
+      });
+  }, [router, setIsAuthenticated]);
 
   if (!isAuthenticated || !user) return null;
   if (user.role === "warden") return <WardenHome user={user} />;

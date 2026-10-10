@@ -13,8 +13,8 @@ export function Shell({ user, children }: { user: User; children: ReactNode }) {
     const { setIsAuthenticated } = useCont();
     const hue = getHostel(user.hostelValue)?.hue ?? 260;
 
-    function logout() {
-        clearUser();
+    async function logout() {
+        await fetch("/api/logout", { method: "POST" });
         setIsAuthenticated(false);
         router.replace("/login");
     }

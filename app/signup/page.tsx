@@ -60,54 +60,39 @@ export default function SignupPage() {
         setPaying(true);
         setError("");
 
-        // TODO: 1) re-check availability on your backend
-        //       2) open Paystack / Flutterwave checkout for room.price
-        //       3) verify payment server-side, then create the account
-        await new Promise((r) => setTimeout(r, 1500));
+        // TODO: open Paystack/Flutterwave checkout here first
+        const res = await fetch("/api/signup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, password, gender, hostelValue: hostel.value, roomSize: room.size }),
+        });
+        const data = await res.json();
 
-        if (roomsLeft(taken, hostel.value, room.size, room.available) === 0) {
-            setError("Sorry, that room was just taken. Please pick another.");
+        if (!res.ok) {
+            setError(data.error ?? "Something went wrong.");
             setPaying(false);
-            setStep(2);
+            if (res.status === 409) setStep(2);
             return;
         }
-
-        const roomNo = `${hostel.label[0]}-${Math.floor(Math.random() * 40) + 1}`; // TODO: assigned by backend
-        addAccount({ name: name.trim(), password, gender: gender as Gender, hostelValue: hostel.value, roomNo });
-        bookRoom(hostel.value, room.size);
-        saveUser({
-            name: name.trim(),
-            hostel: hostel.label,
-            hostelValue: hostel.value,
-            hasCafe: hostel.hasCafe,
-            roomNo,
-            role: "student",
-        });
         setIsAuthenticated(true);
         router.push("/");
     }
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError("");
-
-        if (step === 0) {
-            const clean = name.trim().toLowerCase();
-
-            if (parseStaff(name)) {
-                setError("That name is reserved. Please use your own name.");
-                return;
-            }
-            if (getAccounts().some((a) => a.name.toLowerCase() === clean)) {
-                setError("An account with that name already exists. Try logging in.");
-                return;
-            }
+        const res = await fetch("/api/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name, password }),
+        });
+        if (!res.ok) {
+            setError((await res.json()).error ?? "Login failed.");
+            return;
         }
-
-        if (step === 3) pay();
-        else setStep((s) => s + 1);
+        setIsAuthenticated(true);
+        router.push("/");
     }
-
     return (
         <main className="grid min-h-screen lg:grid-cols-3">
             {/* Brand panel */}
