@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { ContextProvider } from "@/components/Context";
+import { ThemeProvider } from 'next-themes'
 
 const geistHeading = Geist({ subsets: ['latin'], variable: '--font-heading' });
 
@@ -28,8 +29,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable, geistHeading.variable)}
-    ><ContextProvider>
-        <body className="min-h-full flex flex-col">{children}</body></ContextProvider>
+      suppressHydrationWarning={true}><ThemeProvider><ContextProvider>
+
+        <body className="min-h-full flex flex-col">{children}</body></ContextProvider></ThemeProvider>
+
     </html>
   );
 }

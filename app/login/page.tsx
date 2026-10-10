@@ -1,25 +1,32 @@
 "use client";
 
+import { useCont } from "@/components/Context";
+import { hostels } from "@/lib/hostels"; // delete the local hostels array
+import { saveUser } from "@/lib/session";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-const hostels = [
-    { value: "amethyst", label: "Amethyst" },
-    { value: "faith", label: "Faith" },
-];
+
 
 export default function LoginPage() {
     const router = useRouter();
     const [name, setName] = useState("");
     const [password, setPassword] = useState("");
     const [hostel, setHostel] = useState("");
+    const { setIsAuthenticated } = useCont();
 
     function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        // TODO: authenticate with name, password, hostel
+        const selected = hostels.find((h) => h.value === hostel);
+        saveUser({
+            name,
+            hostel: selected?.label ?? "",
+            hasCafe: selected?.hasCafe ?? false,
+            roomNo: "B-6", // TODO: from your backend
+        });
+        setIsAuthenticated(true);
         router.push("/");
     }
-
     const inputClass =
         "w-full rounded-md border border-input bg-background px-3 py-2.5 text-sm outline-none transition focus:border-primary focus:ring-2 focus:ring-ring/40";
 
