@@ -1,3 +1,4 @@
+import { getHostel } from "@/lib/hostels";
 export type Role = "student" | "warden" | "manager";
 
 export interface User {
@@ -28,9 +29,17 @@ export const clearUser = () => sessionStorage.removeItem(KEY);
 
 // PLACEHOLDER: roles must come from your backend. Anyone can type these names.
 // Demo logins: warden.amethyst, manager.amethyst, warden.faith ...
-export function getRole(name: string, hostelValue: string): Role {
-  const n = name.trim().toLowerCase();
-  if (n === `warden.${hostelValue}`) return "warden";
-  if (n === `manager.${hostelValue}`) return "manager";
-  return "student";
+
+// PLACEHOLDER: roles must come from your backend.
+// Demo staff logins: warden.amethyst, manager.faith, ... (any password)
+const STAFF = /^(warden|manager)[\s._-]+([a-z]+)$/i;
+
+// PLACEHOLDER: roles must come from your backend.
+// Accepts "warden.amethyst", "Warden Amethyst", "manager - faith", etc.
+export function parseStaff(name: string) {
+  const m = name.trim().match(STAFF);
+  if (!m) return null;
+  const role = m[1].toLowerCase() as "warden" | "manager";
+  const hostelValue = m[2].toLowerCase();
+  return { role, hostelValue, valid: !!getHostel(hostelValue) };
 }

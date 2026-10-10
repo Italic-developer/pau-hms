@@ -74,3 +74,16 @@ export const seedOrders: ServiceOrder[] = [
 export const seedTasks: Task[] = [
   { id: 1, hostel: "amethyst", title: "Check water pressure on 2nd floor", from: "manager", to: "warden", done: false, date: "Oct 8" },
 ];
+export const takenKey = (hostel: string, size: number) => `${hostel}:${size}`;
+
+export function bookRoom(hostel: string, size: number) {
+  try {
+    const t = JSON.parse(localStorage.getItem("hms-taken") ?? "{}");
+    const k = takenKey(hostel, size);
+    t[k] = (t[k] ?? 0) + 1;
+    localStorage.setItem("hms-taken", JSON.stringify(t));
+  } catch {}
+}
+
+export const roomsLeft = (taken: Record<string, number>, hostel: string, size: number, base: number) =>
+  Math.max(0, base - (taken[takenKey(hostel, size)] ?? 0));

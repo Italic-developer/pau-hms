@@ -4,17 +4,22 @@ import { DoorOpen, MessageSquareWarning, Percent } from "lucide-react";
 import { Card, Shell, Stat, StatusBadge, selectClass } from "@/components/Shell";
 import { TaskBoard } from "@/components/TaskBoard";
 import { getHostel } from "@/lib/hostels";
-import { seedComplaints, useShared, type Complaint, type ComplaintStatus } from "@/lib/store";
+import { roomsLeft, seedComplaints, useShared, type Complaint, type ComplaintStatus } from "@/lib/store";
 import type { User } from "@/lib/session";
 
 export default function ManagerHome({ user }: { user: User }) {
     const hostel = getHostel(user.hostelValue);
     const [all, setAll] = useShared<Complaint[]>("hms-complaints", seedComplaints);
-    if (!hostel) return null;
+    const [taken] = useShared<Record<string, number>>("hms-taken", {});
 
+    if (!hostel) return null;
+    const rooms = hostel.rooms.map((r) => ({
+        ...r,
+        available: roomsLeft(taken, hostel.value, r.size, r.available),
+    }));
     const complaints = all.filter((c) => c.hostel === user.hostelValue);
-    const total = hostel.rooms.reduce((s, r) => s + r.total, 0);
-    const free = hostel.rooms.reduce((s, r) => s + r.available, 0);
+    const total = rooms.reduce((s, r) => s + r.total, 0);
+    const free = rooms.reduce((s, r) => s + r.available, 0);
     const open = complaints.filter((c) => c.status !== "Resolved").length;
 
     const setStatus = (id: number, status: ComplaintStatus) =>

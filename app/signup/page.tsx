@@ -6,7 +6,9 @@ import Link from "next/link";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { useCont } from "@/components/Context";
 import { getHostel, hostels, type Gender } from "@/lib/hostels";
-import { saveUser } from "@/lib/session";
+import { parseStaff, saveUser } from "@/lib/session";
+import { addAccount, getAccounts } from "@/lib/accounts";
+import { bookRoom, roomsLeft, useShared } from "@/lib/store";
 
 const steps = ["Account", "Hostel", "Room", "Payment"];
 const naira = (n: number) => `₦${n.toLocaleString()}`;
@@ -18,6 +20,7 @@ const primaryBtn =
 const tag = "shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium";
 const green = "bg-green-100 text-green-800 dark:bg-green-500/15 dark:text-green-300";
 const red = "bg-red-100 text-red-800 dark:bg-red-500/15 dark:text-red-300";
+const errorBox = "mt-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800 dark:bg-red-500/15 dark:text-red-300";
 const choice = (selected: boolean) =>
     `flex w-full items-center justify-between rounded-lg border p-4 text-left transition disabled:cursor-not-allowed disabled:opacity-50 ${selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "hover:bg-accent"
     }`;
@@ -25,6 +28,7 @@ const choice = (selected: boolean) =>
 export default function SignupPage() {
     const router = useRouter();
     const { setIsAuthenticated } = useCont();
+    const [taken] = useShared<Record<string, number>>("hms-taken", {});
 
     const [step, setStep] = useState(0);
     const [name, setName] = useState("");
@@ -61,19 +65,22 @@ export default function SignupPage() {
         //       3) verify payment server-side, then create the account
         await new Promise((r) => setTimeout(r, 1500));
 
-        if (room.available === 0) {
+        if (roomsLeft(taken, hostel.value, room.size, room.available) === 0) {
             setError("Sorry, that room was just taken. Please pick another.");
             setPaying(false);
             setStep(2);
             return;
         }
 
+        const roomNo = `${hostel.label[0]}-${Math.floor(Math.random() * 40) + 1}`; // TODO: assigned by backend
+        addAccount({ name: name.trim(), password, gender: gender as Gender, hostelValue: hostel.value, roomNo });
+        bookRoom(hostel.value, room.size);
         saveUser({
-            name,
+            name: name.trim(),
             hostel: hostel.label,
             hostelValue: hostel.value,
             hasCafe: hostel.hasCafe,
-            roomNo: `${hostel.label[0]}-${Math.floor(Math.random() * 40) + 1}`, // TODO: assigned by backend
+            roomNo,
             role: "student",
         });
         setIsAuthenticated(true);
@@ -83,6 +90,20 @@ export default function SignupPage() {
     function handleSubmit(e: React.FormEvent) {
         e.preventDefault();
         setError("");
+
+        if (step === 0) {
+            const clean = name.trim().toLowerCase();
+
+            if (parseStaff(name)) {
+                setError("That name is reserved. Please use your own name.");
+                return;
+            }
+            if (getAccounts().some((a) => a.name.toLowerCase() === clean)) {
+                setError("An account with that name already exists. Try logging in.");
+                return;
+            }
+        }
+
         if (step === 3) pay();
         else setStep((s) => s + 1);
     }
@@ -116,7 +137,7 @@ export default function SignupPage() {
                     {/* Progress */}
                     <ol className="mb-8 flex items-center">
                         {steps.map((label, i) => (
-                            <li key={label} className="flex flex-1 items-center last:flex-none">
+                            <li key={label} className={`flex items-center ${i < steps.length - 1 ? "flex-1" : ""}`}>
                                 <span
                                     className={`flex size-7 items-center justify-center rounded-full text-xs font-semibold ${i <= step ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground"
                                         }`}
@@ -139,6 +160,7 @@ export default function SignupPage() {
                             <>
                                 <h2 className="text-2xl font-semibold">Create your account</h2>
                                 <p className="mt-1 text-sm text-muted-foreground">Start with your details</p>
+                                {error && <p className={errorBox}>{error}</p>}
                                 <div className="mt-8 space-y-5">
                                     <div className="space-y-1.5">
                                         <label htmlFor="name" className="text-sm font-medium">Name</label>
@@ -175,7 +197,9 @@ export default function SignupPage() {
                                 <p className="mt-1 text-sm text-muted-foreground">Hostels for {gender} students</p>
                                 <div className="mt-6 space-y-3">
                                     {options.map((h) => {
-                                        const full = h.rooms.every((r) => r.available === 0);
+                                        const full = h.rooms.every(
+                                            (r) => roomsLeft(taken, h.value, r.size, r.available) === 0
+                                        );
                                         return (
                                             <button key={h.value} type="button" disabled={full}
                                                 onClick={() => pickHostel(h.value)} className={choice(hostelValue === h.value)}>
@@ -198,20 +222,23 @@ export default function SignupPage() {
                             <>
                                 <h2 className="text-2xl font-semibold">Pick a room size</h2>
                                 <p className="mt-1 text-sm text-muted-foreground">Rooms in {hostel.label}</p>
-                                {error && <p className="mt-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800 dark:bg-red-500/15 dark:text-red-300">{error}</p>}
+                                {error && <p className={errorBox}>{error}</p>}
                                 <div className="mt-6 space-y-3">
-                                    {hostel.rooms.map((r) => (
-                                        <button key={r.size} type="button" disabled={r.available === 0}
-                                            onClick={() => setRoomSize(r.size)} className={choice(roomSize === r.size)}>
-                                            <div>
-                                                <p className="font-medium">{r.label}</p>
-                                                <p className="text-sm text-muted-foreground">{naira(r.price)} per session</p>
-                                            </div>
-                                            <span className={`${tag} ${r.available === 0 ? red : green}`}>
-                                                {r.available === 0 ? "Full" : `${r.available} left`}
-                                            </span>
-                                        </button>
-                                    ))}
+                                    {hostel.rooms.map((r) => {
+                                        const left = roomsLeft(taken, hostel.value, r.size, r.available);
+                                        return (
+                                            <button key={r.size} type="button" disabled={left === 0}
+                                                onClick={() => setRoomSize(r.size)} className={choice(roomSize === r.size)}>
+                                                <div>
+                                                    <p className="font-medium">{r.label}</p>
+                                                    <p className="text-sm text-muted-foreground">{naira(r.price)} per session</p>
+                                                </div>
+                                                <span className={`${tag} ${left === 0 ? red : green}`}>
+                                                    {left === 0 ? "Full" : `${left} left`}
+                                                </span>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </>
                         )}
@@ -221,7 +248,7 @@ export default function SignupPage() {
                             <>
                                 <h2 className="text-2xl font-semibold">Confirm and pay</h2>
                                 <p className="mt-1 text-sm text-muted-foreground">Your room is held until you pay</p>
-                                {error && <p className="mt-4 rounded-md bg-red-100 px-3 py-2 text-sm text-red-800 dark:bg-red-500/15 dark:text-red-300">{error}</p>}
+                                {error && <p className={errorBox}>{error}</p>}
                                 <dl className="mt-6 divide-y rounded-lg border text-sm">
                                     {[
                                         ["Name", name],
